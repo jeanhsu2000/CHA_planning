@@ -51,7 +51,7 @@ setup(
             "transformers",
             "numpy",
             "gtts",
-            "git+https://github.com/speechbrain/speechbrain.git@develop",
+            #"git+https://github.com/speechbrain/speechbrain.git@develop",
             "pandas",
         ],
         "minimum": [

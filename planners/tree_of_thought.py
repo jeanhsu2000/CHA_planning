@@ -8,7 +8,6 @@ from typing import List
 from planners.action import Action
 from planners.action import PlanFinish
 from planners.planner import BasePlanner
-from tasks.task import OutputType
 
 
 class TreeOfThoughtPlanner(BasePlanner):
@@ -69,11 +68,13 @@ Here are the tools at your disposal:
 
 The following is the format of the information provided:
 MetaData: this contains the name of data files of different types like image, audio, video, and text. You can pass these files to tools when needed.
+History: the history of previous chats happened. Review the history for any previous responses relevant to the current query
+PreviousActions: the list of already performed actions. You should start planning knowing that these actions are performed.
+Question: the input question you must answer.
 
-Use the tools and provided information, first suggest three \
+Considering previously actions and their results, use the tools and provided information, first suggest three \
 creative strategies with detailed explanation consisting of sequences of tools to properly answer the user query. \
 Make sure the strategies are comprehensive enough and use proper tools. The tools constraints should be always satisfied. \
-**You should stick to the provided tools and never use any other tasks.** Never try to load files as your strategy steps.
 
 After specifying the strategies, mention the pros and cons of each strategy. \
 In the end decide the best strategy and write the detailed tool executions step by step.
@@ -88,8 +89,8 @@ MetaData:
 {previous_actions}
 =========================
 {history}
-USER: {input}
-CHA:
+=========================
+USER: {input} \n CHA:
 """,
             """
 {strategy}
@@ -99,11 +100,6 @@ CHA:
 Tools:
 {tool_names}
 =========================
-MetaData:
-{meta}
-=========================
-{history}
-USER: {input}
 
 You are skilled python programmer that can solve problems and convert them into python codes. \
 Using the selected final strategy mentioned in the 'Decision:
@@ -133,13 +129,11 @@ Question: {input}
                     + "\n".join(task.outputs)
                     + (
                         "\n- The result of this tool will be stored in the datapipe."
-                        if task.output_type == OutputType.DATAPIPE
+                        if task.output_type
                         else ""
                     )
                     + "\n-----------------------------------\n"
                 )
-                if not task.executor_task
-                else ""
                 for task in self.available_tasks
             ]
         )
@@ -234,7 +228,7 @@ Question: {input}
         prompt = (
             self._planner_prompt[0]
             .replace("{input}", query)
-            .replace("{meta}", meta)
+            .replace("{meta}", ", ".join(meta))
             .replace(
                 "{history}", history if use_history else "No History"
             )
@@ -258,16 +252,13 @@ Question: {input}
             .replace("{tool_names}", self.get_available_tasks())
             .replace("{previous_actions}", previous_actions_prompt)
             .replace("{input}", query)
-            .replace("{meta}", meta)
-            .replace(
-                "{history}", history if use_history else "No History"
-            )
         )
         print("prompt2", prompt)
         kwargs["stop"] = self._stop
         response = self._planner_model.generate(
             query=prompt, **kwargs
         )
+
         index = min([response.find(text) for text in self._stop])
         response = response[0:index]
         actions = self.parse(response)

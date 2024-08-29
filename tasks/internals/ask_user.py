@@ -32,7 +32,7 @@ class AskUser(BaseTask):
         """Translate query"""
         if inputs is None:
             return ""
-        return f"Rephrase the following question and ask user in a more engagnig way:\nquestion: {inputs[0]}"
+        return f"Rephrase the following question and ask user in a more engaging way:\nquestion: {inputs[0]}"
 
     def explain(
         self,

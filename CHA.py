@@ -24,7 +24,7 @@ class CHA(BaseModel):
     orchestrator: Orchestrator = None
     sync_browser: Any = None
     planner_llm: str = LLMType.OPENAI
-    planner: str = PlannerType.TREE_OF_THOUGHT
+    planner: str = PlannerType.BRANCH_SOLVE_MERGE
     datapipe: str = DatapipeType.MEMORY
     promptist: str = ""
     response_generator_llm: str = LLMType.OPENAI

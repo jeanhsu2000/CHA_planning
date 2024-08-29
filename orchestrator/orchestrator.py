@@ -320,10 +320,14 @@ class Orchestrator(BaseModel):
                 self.previous_actions.append(action)
                 self.current_actions.append(action)
             if task.return_direct:
+                print('Returning direct\n')
                 raise ReturnDirectException(result)
             return result  # , task.return_direct
         except ReturnDirectException as e:
-            raise ReturnDirectException(e.message)
+            print('Inside return direct except\n')
+            print('message: ', e.message)
+            #raise ReturnDirectException(e.message)
+            raise
         except Exception as e:
             self.print_log(
                 "error",
@@ -523,7 +527,7 @@ class Orchestrator(BaseModel):
                 break
             except ReturnDirectException as e:
                 final_response = e.message
-                # return query, final_response
+                return query, final_response, self.current_meta_data
                 break
             except (Exception, SystemExit) as error:
                 self.print_log(

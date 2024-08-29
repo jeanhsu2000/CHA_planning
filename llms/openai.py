@@ -44,7 +44,7 @@ class OpenAILLM(BaseLLM):
     }
     api_key: str = ""
     llm_model: Any = None
-    max_tokens: int = 150
+    max_tokens: int = 1000
 
     @model_validator(mode="before")
     def validate_environment(cls, values: Dict) -> Dict:

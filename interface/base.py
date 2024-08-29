@@ -7,6 +7,7 @@ from typing import Dict
 import numpy as np
 from gradio.data_classes import FileData
 from gradio_multimodalchatbot import MultimodalChatbot
+from orchestrator.ReturnDirectException import ReturnDirectException
 from pydantic import BaseModel
 from pydantic import Extra
 from pydantic import model_validator
@@ -162,30 +163,54 @@ class Interface(BaseModel):
             "response_generator_main_prompt": response_generator_main_prompt
         }
 
-        query, response, meta_data = self.run_query(
-            query=message,
-            meta=self.meta_data,
-            chat_history=self.prepare_chat_history(chat_history),
-            available_tasks=tasks_list,
-            use_history=check_box,
-            **kwargs,
-        )
+        try:
+            query, response, meta_data = self.run_query(
+                query=message,
+                meta=self.meta_data,
+                chat_history=self.prepare_chat_history(chat_history),
+                available_tasks=tasks_list,
+                use_history=check_box,
+                **kwargs,
+            )
 
-        files = [
-            {"file": FileData(path=meta.path)} for meta in meta_data
-        ]
-        chat_history.append(
-            [
-                {"text": query, "files": []},
-                {
-                    "text": response,
-                    "files": files,
-                },
+            files = [
+                {"file": FileData(path=meta.path)} for meta in meta_data
             ]
-        )
+            chat_history.append(
+                [
+                    {"text": query, "files": []},
+                    {
+                        "text": response,
+                        "files": files,
+                    },
+                ]
+            )
 
-        self.meta_data = []
-        return "", chat_history
+            self.meta_data = []
+            return "", chat_history
+
+        except ReturnDirectException as e:
+            print("Catching direct exception in interface\n")
+            # Handle the ReturnDirectException and display it in the chat history
+            error_message = f"Direct Return: {e.message}"
+            chat_history.append(
+                [
+                    {"text": message, "files": []},
+                    {"text": error_message, "files": []},
+                ]
+            )
+            return "", chat_history
+
+        except Exception as e:
+            # Handle other exceptions and display the error message
+            error_message = f"An error occurred: {str(e)}"
+            chat_history.append(
+                [
+                    {"text": message, "files": []},
+                    {"text": error_message, "files": []},
+                ]
+            )
+            return "", chat_history
 
     def prepare_interface(
         self,
