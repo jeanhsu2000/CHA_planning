@@ -296,7 +296,7 @@ class Interface(BaseModel):
             with self.gr.Row():
                 response_generator_main_prompt = self.gr.Textbox(
                     scale=9,
-                    label="Respnose Generator Prompt",
+                    label="Response Generator Prompt",
                     info="Put your prompt for the response generator here.",
                     value=DefaultPrompts.RESPONSE_GENERATOR_MAIN_PROMPT,
                 )

@@ -219,24 +219,26 @@ Question: {input}
                 )
                 agent_scratchpad += chunk_summary + " "
 
-    def generate_bsm_template(self, category: str, instructions: str, response_start: str) -> str:
-        # Step 1: Generate the Branch portion
+    def generate_bsm_template(self, category: str, instructions: str, response_start: str, original_query: str) -> str:
+        # Step 1: Generate the Branch portion based on the category
         branch_prompt = f"""
-        You are a skilled prompt engineer tasked with restructuring an original prompt into a Branch-Solve-Merge workflow.
+        You are a skilled health assistant tasked with restructuring an original prompt into a Branch-Solve-Merge workflow.
 
         ### Inputs:
-
         - **Category**: {category}
+        - **Original Query**: {original_query}
         - **Original Instructions**: {instructions}
         - **Response Start**: {response_start}
 
         ### Task - Branch:
 
-        Start by dividing the task into two or more distinct groups or paths that could independently address the problem based on the inputs. 
-        **The number of groups should be at least 2, but could be more depending on the complexity of the case.**
-        Each group should use all the symptoms and medical history provided and independently focus on a different treatment/diagnosis/disease.
+        Start by dividing the task into two or more distinct paths based on the patient’s symptoms and medical history provided in the original query. 
+        Each path should represent a potential diagnosis or treatment option grounded in the provided symptoms.
 
-        Now, generate the Branch portion of the BSM workflow.
+        For each path, outline the main areas where follow-up questions will be necessary to gather more detailed information from the patient. 
+        Focus on the high-level structure of what needs to be clarified in each path.
+
+        Now, generate the Branch portion of the BSM workflow based on the category "{category}". This will guide the follow-up questions in the Solve phase.
         """
 
         branch_output = self._planner_model.generate(query=branch_prompt).strip()
@@ -245,73 +247,41 @@ Question: {input}
         solve_prompt = f"""
         You are continuing the task of restructuring an original prompt into a Branch-Solve-Merge workflow.
 
+        ### Original Query:
+        {original_query}
+
         ### Branch Output:
         {branch_output}
 
         ### Task - Solve:
 
-        For each group generated in the Branch step, focus exclusively on generating a list of follow-up questions to ask the user. 
-        These questions should be tailored to the specific group or branch and should help clarify or gather additional necessary information relevant to the group's focus. 
-        Each branch should be treated independently in this step.
+        For each path generated in the Branch step, focus exclusively on generating a list of **follow-up questions** to ask the user. 
+        These questions should be tailored to the specific branch and should help clarify or gather additional necessary information relevant to the branch’s focus (e.g., diagnosis, treatment plan, prognosis, or prevention). 
 
-        Ensure that the follow-up questions meet the following criteria:
-        1. **Complete and concise:** Each question should be clear and to the point, covering all necessary aspects without being overly verbose.
-        2. **Informative and detailed:** The questions should be thorough, aiming to gather detailed information that can significantly aid in the subsequent analysis or solution.
-        3. **Open-ended:** Avoid simple yes/no questions. Instead, the questions should encourage more comprehensive responses, allowing the user to provide detailed information.
+        Make sure the follow-up questions are:
+        1. **Detailed and open-ended** – Encourage comprehensive responses from the user, avoiding simple yes/no questions.
+        2. **Specific to each branch** – Each question should align with the hypothesis or diagnosis of the respective branch.
+        3. **Clinically relevant** – Ensure that the questions are meaningful in gathering information to guide further diagnostic steps or treatment options.
 
         Return the follow-up questions as a list for each branch, formatted as follows:
 
         Branch 1:
-        - Question 1
-        - Question 2
+        - Follow-up Question 1
+        - Follow-up Question 2
         - ...
 
         Branch 2:
-        - Question 1
-        - Question 2
+        - Follow-up Question 1
+        - Follow-up Question 2
         - ...
 
-        Now, generate the Solve portion of the BSM workflow, which consists only of the follow-up questions, based on the Branch output above.
+        Now, generate the Solve portion of the BSM workflow, focusing only on the follow-up questions based on the Branch output above.
         """
 
         solve_output = self._planner_model.generate(query=solve_prompt).strip()
 
-        # # Step 3: Generate the Merge portion
-        # merge_prompt = f"""
-        # You are completing the task of restructuring an original prompt into a Branch-Solve-Merge workflow.
+        return branch_output, solve_output
 
-        # ### Branch Output:
-        # {branch_output}
-
-        # ### Solve Output:
-        # {solve_output}
-
-        # ### Task - Merge:
-
-        # Finally, instruct how to combine the solutions from both groups into a comprehensive final result.
-        # Ensure that the final output considers all aspects and provides a clear, actionable plan or conclusion.
-
-        # Now, generate the Merge portion of the BSM workflow based on the Branch and Solve outputs above.
-        # """
-
-        # merge_output = self._planner_model.generate(query=merge_prompt).strip()
-
-        # Combine all parts into the final BSM template
-        # bsm_template = f"""
-        # {branch_output}
-
-        # {solve_output}
-
-        # {merge_output}
-        # """
-        bsm_template = f"""
-        {branch_output}
-
-        {solve_output}
-
-        """
-
-        return branch_output, solve_output, bsm_template.strip()
 
     def extract_follow_up_questions(self, response: str) -> dict:
         """
@@ -379,10 +349,10 @@ Question: {input}
         response_start = category_mapping[category]["response_start"]
 
         # Generate the BSM template
-        branch_output, solve_output, bsm_prompt_template = self.generate_bsm_template(category, instructions, response_start)
+        branch_output, solve_output = self.generate_bsm_template(category, instructions, response_start, input)
         print('Branch output \n: ', branch_output)
         print('Solve output: \n', solve_output)
-        print('BSM template: \n', bsm_prompt_template)
+       #print('BSM template: \n', bsm_prompt_template)
 
         #return list of follow-up questions to the user
         follow_up_questions = self.extract_follow_up_questions(solve_output)
@@ -390,7 +360,7 @@ Question: {input}
         # Step 2: Concatenate all questions into a single string
         concatenated_questions = ""
         for questions in follow_up_questions.values():
-            concatenated_questions += " ".join(questions) + " "
+            concatenated_questions += " \n".join(questions) + " "
 
         return concatenated_questions.strip()
 
@@ -499,6 +469,9 @@ Question: {input}
         # Step 1: Categorize the inquiry
         category = self.categorize_inquiry(query)
 
+        print('Query: ', query)
+        print('Category: ', category)
+
         #previous actions prompt
         previous_actions_prompt = ""
         if len(previous_actions) > 0 and self.use_previous_action:
@@ -523,16 +496,37 @@ Question: {input}
         # kwargs["max_tokens"] = 1000
         # response = self._planner_model.generate(query=prompt, **kwargs)
         # print('Response 1: ', response)
+
+        # Generate the follow-up list based on the provided context
         follow_up_list = self.generate_follow_up(
             category=category,
             tool_names=self.task_descriptions(),
             meta=meta,
             previous_actions=previous_actions_prompt,
-            history= history_prompt,
-            input=query)
-        
-       
-        askUserAction = f"""self.execute_task('ask_user', ['{follow_up_list}'])\n"""
+            history=history_prompt,
+            input=query
+        )
+
+        print('Follow-up list: \n', follow_up_list)
+
+        # Split the follow-up list into individual questions and clean up any empty lines
+        follow_up_questions = [q.strip() for q in follow_up_list.split('\n') if q.strip()]
+
+        print('Follow-up questions one by one: ', follow_up_questions)
+
+        # Step 4: Format the entire list of follow-up questions into a single string
+        formatted_follow_up = "In order to answer your query, please answer the following questions:\\n\\n"
+        for question_counter, question in enumerate(follow_up_questions, 1):
+            # Format each question with a number and a newline
+            formatted_follow_up += f"{question_counter}. {question}\\n"
+
+        # Escape any double quotes and newlines in the formatted string to avoid issues in the task execution
+        escaped_formatted_follow_up = formatted_follow_up.replace('"', '\\"')
+
+        # Step 5: Create a single action string to ask the user the entire list of questions at once
+        askUserAction = f'self.execute_task("ask_user", ["{escaped_formatted_follow_up}"])\n'
+
+        # Return the single action to be executed
         return askUserAction
 
 
