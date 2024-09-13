@@ -27,6 +27,11 @@ from tasks.task_types import TaskType
 from tasks.test_file import TestFile
 from tasks.text_to_speech import TextToSpeech
 
+from tasks.retrieve_travel_exposure_history import RetrieveTravelExposureHistory
+from tasks.retrieve_vaccination_history import RetrieveVaccinationHistory
+from tasks.retrieve_medication_history import RetrieveMedicationHistory
+from tasks.retrieve_disease_history import RetrieveDiseaseHistory
+
 
 TASK_TO_CLASS: Dict[TaskType, Type[BaseTask]] = {
     TaskType.SERPAPI: SerpAPI,
@@ -49,6 +54,10 @@ TASK_TO_CLASS: Dict[TaskType, Type[BaseTask]] = {
     TaskType.SPEECH_EMOTION_RECOGNITION: SpeechEmotionRecognition,
     TaskType.PLOT: PlotTask,
     TaskType.ANALYSIS: StatisticalAnalysis,
+    TaskType.RETRIEVE_TRAVEL_EXPOSURE_HISTORY: RetrieveTravelExposureHistory,
+    TaskType.RETRIEVE_VACCINATION_HISTORY: RetrieveVaccinationHistory,
+    TaskType.RETRIEVE_MEDICATION_HISTORY: RetrieveMedicationHistory,
+    TaskType.RETRIEVE_DISEASE_HISTORY: RetrieveDiseaseHistory
 }
 
 INTERNAL_TASK_TO_CLASS: Dict[TaskType, Type[BaseTask]] = {

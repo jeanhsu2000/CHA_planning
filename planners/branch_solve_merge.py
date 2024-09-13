@@ -275,7 +275,7 @@ Question: {input}
         - Follow-up Question 2
         - ...
 
-        Now, generate the Solve portion of the BSM workflow, focusing only on the follow-up questions based on the Branch output above.
+        You **must strictly follow this format** for the response. Now, generate the Solve portion of the BSM workflow, focusing only on the follow-up questions based on the Branch output above.
         """
 
         solve_output = self._planner_model.generate(query=solve_prompt).strip()
@@ -323,7 +323,7 @@ Question: {input}
     def generate_follow_up(self, category: str, tool_names: str, meta: str, previous_actions: str, history: str, input: str) -> str:
         category_mapping = {
             "differential diagnosis": {
-                "instructions": """Use the tools and provided information to first suggest three possible diagnoses \
+                "instructions": """Use the tools and provided information to first suggest two or more possible diagnoses \
                     for the patient based on their symptoms and medical history. \
                     Give a detailed explanation consisting of sequences of tools to properly come up with the diagnoses to answer the user query. \
                     For each diagnosis, list the steps, tests, or treatments you would recommend to confirm or address it. \
@@ -352,14 +352,81 @@ Question: {input}
         branch_output, solve_output = self.generate_bsm_template(category, instructions, response_start, input)
         print('Branch output \n: ', branch_output)
         print('Solve output: \n', solve_output)
-       #print('BSM template: \n', bsm_prompt_template)
 
         #return list of follow-up questions to the user
         follow_up_questions = self.extract_follow_up_questions(solve_output)
 
+        print('Follow up questions before filtering: \n', follow_up_questions)
+
+        # Step 5: Get available tools and descriptions
+        tool_descriptions = tool_names  # Use self.task_descriptions() to get the tools and their descriptions
+
+        print('tool descriptions: \n', tool_descriptions)
+
+        # Step 6: Modify helper function to use ChatGPT (or language model) for dynamic decision making
+        def is_tool_available_for_question(question: str) -> bool:
+            """
+            This helper function asks ChatGPT whether a tool can answer the given question based on the tool descriptions.
+            Returns a bool indicating if a tool is available and prints the tools if applicable.
+            
+            Args:
+            - question (str): The follow-up question for the patient.
+            - tool_descriptions (str): A formatted string that lists and describes available tools.
+            - available_tasks (List[str]): A list of available task names that the model can choose from.
+            
+            Returns:
+            - bool: True if one or more tools are available, False otherwise.
+            """
+            prompt = f"""
+            The following tools are available:
+            {tool_descriptions}
+
+            The task is to assess the patient's condition by asking relevant follow-up questions. These questions are aimed at understanding the patient's symptoms and health status, not extracting text from web pages or performing tasks unrelated to healthcare.
+
+            Can any of these tools (excluding `ask_user`) help answer the following follow-up question for a patient?
+            
+            Follow-up question: "{question}"
+
+            Please evaluate whether any of the tools can answer the question based on their **relevance to gathering health information from the patient**. 
+            Do not respond "yes" if the only tool that can answer the question is `ask_user`. This task is currently being used to ask follow-up questions that other tools cannot handle. 
+            Tools that are used for scraping text from web pages (such as `extract_text`) are irrelevant to this context.
+
+            Respond with "yes" or "no". If "yes", explicitly list the relevant tool(s) by name. 
+            You **must strictly follow this format** for the response:
+            - "yes: [Tool Name 1], [Tool Name 2], ..."
+            - "no"
+            
+            Avoid suggesting tools unrelated to understanding the patient's condition.
+            """
+            # Use the language model to evaluate the question against the tool descriptions
+            response = self._planner_model.generate(query=prompt).lower().strip()
+
+            print('is tool available: ', response)
+
+            # If the model responds with "yes" and mentions any tool, return True
+            if "yes" in response:
+                return True
+            return False
+
+        # Step 7: Filter out questions that can be answered by available tools
+        filtered_follow_up_questions = {}
+        number_skipped = 0
+        for branch, questions in follow_up_questions.items():
+            filtered_questions = []
+            for question in questions:
+                print('question: ', question)
+                if not is_tool_available_for_question(question):
+                    filtered_questions.append(question)
+                else:
+                    number_skipped += 1
+                    print(f"Skipping question: '{question}' as it can be handled by an available tool.")
+            if filtered_questions:
+                filtered_follow_up_questions[branch] = filtered_questions
+        print('number skipped: ', number_skipped)
+
         # Step 2: Concatenate all questions into a single string
         concatenated_questions = ""
-        for questions in follow_up_questions.values():
+        for questions in filtered_follow_up_questions.values():
             concatenated_questions += " \n".join(questions) + " "
 
         return concatenated_questions.strip()

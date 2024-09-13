@@ -23,3 +23,7 @@ class TaskType(str, Enum):
     SPEECH_EMOTION_RECOGNITION = "speech_emotion_recognition"
     PLOT = "plot_task"
     ANALYSIS = "statistical_analysis"
+    RETRIEVE_TRAVEL_EXPOSURE_HISTORY = "retrieve_travel_exposure_history"
+    RETRIEVE_VACCINATION_HISTORY = "retrieve_vaccination_history"
+    RETRIEVE_MEDICATION_HISTORY = "retrieve_medication_history"
+    RETRIEVE_DISEASE_HISTORY = "retrieve_disease_history"
