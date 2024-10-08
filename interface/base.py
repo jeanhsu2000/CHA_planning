@@ -173,6 +173,11 @@ class Interface(BaseModel):
                 **kwargs,
             )
 
+            print('BASE\n')
+            print('query: ', query)
+            print('response: ', response)
+            print('meta data: ', meta_data)
+
             files = [
                 {"file": FileData(path=meta.path)} for meta in meta_data
             ]
@@ -189,17 +194,17 @@ class Interface(BaseModel):
             self.meta_data = []
             return "", chat_history
 
-        except ReturnDirectException as e:
-            print("Catching direct exception in interface\n")
-            # Handle the ReturnDirectException and display it in the chat history
-            error_message = f"Direct Return: {e.message}"
-            chat_history.append(
-                [
-                    {"text": message, "files": []},
-                    {"text": error_message, "files": []},
-                ]
-            )
-            return "", chat_history
+        # except ReturnDirectException as e:
+        #     print("Catching direct exception in interface\n")
+        #     # Handle the ReturnDirectException and display it in the chat history
+        #     error_message = f"Direct Return: {e.message}"
+        #     chat_history.append(
+        #         [
+        #             {"text": message, "files": []},
+        #             {"text": error_message, "files": []},
+        #         ]
+        #     )
+        #     return "", chat_history
 
         except Exception as e:
             # Handle other exceptions and display the error message
@@ -245,7 +250,7 @@ class Interface(BaseModel):
                 react = ReAct(llm=OpenAI())
 
         """
-
+         
         with self.gr.Blocks() as demo:
             with self.gr.Row():
                 with self.gr.Column(scale=9):
@@ -365,3 +370,4 @@ class Interface(BaseModel):
         """
 
         self.interface.close()
+        

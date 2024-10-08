@@ -4,7 +4,6 @@ from typing import List
 from tasks.task import BaseTask
 from tasks.task import OutputType
 
-
 class AskUser(BaseTask):
     """
     **Description:**
